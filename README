@@ -1,0 +1,39 @@
+###################
+What is xenbackup-ng
+###################
+
+xebackup-ng is a perl script for making backups of your xenserver infrastructure.
+
+**************************
+Changelog and New Features
+**************************
+
+
+*******************
+Requirements
+*******************
+
+XenServer 6.0 and up
+
+************
+Installation
+************
+
+
+
+*******
+License
+*******
+
+xenbackup-ng is released under the MIT License (MIT)
+
+*********
+Resources
+*********
+
+
+***************
+Acknowledgement
+***************
+
+xenbackup-ng is based on original work of Filippo Zanardo ( https://pipposan.wordpress.com/ )
