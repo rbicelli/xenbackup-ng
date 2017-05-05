@@ -20,7 +20,7 @@
 # 8. Versioning (deletion of files) executed only if backup process went fine
 
 
-#SCRIPT_VERSION = "1.0.0";
+#SCRIPT_VERSION = "1.1.0";
 
 use Switch;
 
@@ -108,6 +108,8 @@ if ($checkspace eq true) {
 }
 
 
+# Expand Selection
+
 $vmlist = `xe vm-list`;                             # Get the formatted list of guests
 @lineList = split(/\n/,$vmlist);                    # Split the list of guests into and array of lines
 @uuid = ();                                         # Array to store uuid's in
@@ -141,6 +143,23 @@ if ($fullbackup eq true) {                		  #Full backup
 } else {						#Selective Backup
 	logLine("$SelectiveBackup $Selected");
 	$backupType = $SelectiveBackup;	
+			
+	foreach $tags(@Selected_Tags) { #Add Tags to Selection
+
+        	@vm_tag = vmList('tags:contains="' . $tags . '"');
+
+        	@Selected = mergeSelection(\@Selected, \@vm_tag);
+
+	}
+	
+	foreach $app(@Selected_vApps) { #Add Virtual Appliances to Selection
+
+        	@app = vmAppliance($app);
+
+        	@Selected = mergeSelection(\@Selected, \@app);
+	
+	}
+
 	foreach $guest(@Selected) {			#Cycle Selection of VM to backup
 		if (grep $_ eq $guest, @uuid) { 	#If guest exists in pool then add it to array of UUIDs to backup
 			$VMName = getVMName($guest);
@@ -149,15 +168,22 @@ if ($fullbackup eq true) {                		  #Full backup
 			logLine("$Selected $Guest $NonExistent: $guest");
 		}
 	}
+
+
+	
 }                    
 
 if ($usesnap eq true) {
-$backupMode = "Snapshot";
+	$backupMode = "Snapshot";
+	
 	if ($quiesce eq true) {
 		$backupMode = "Snapshot/Quiesce";
 	}
+
 } else {
+
 		$backupMode = "$ShutdownRestart";	
+
 }
 	
 foreach $guest(@uuid_b){
@@ -412,10 +438,6 @@ if ($mailNotification eq true){
 }
 
 
-
-
-
-
 ################################################################################################
 # 				Functions/Sub Library
 ################################################################################################
@@ -449,6 +471,29 @@ sub loadFile {
 	eval $lfile;
 	die "Couldn't interpret the file ($filename) that was given.\nError details follow: $@\n" if $@;
 }
+
+
+sub  vmList {
+
+	$vmlist = `xe vm-list $_[0]`;                       # Get the formatted list of guests
+
+        @lineList = split(/\n/,$vmlist);                    # Split the list of guests into and array of lines
+
+        local @uuid = ();                                   # Array to store uuid's in
+
+	foreach $line(@lineList){                           #for each line in the array
+
+                if (substr($line,0,4) eq "uuid"){           #look for the word uuid at the beginning of the line
+
+                push(@uuid, substr($line,23,36));           #if its there add the uuid to the array
+
+        }
+
+	}
+
+        return @uuid;
+}
+
 
 sub getVMName {
 	local $rval;
@@ -551,4 +596,35 @@ sub sendLogMail {
 	$send = `ssmtp $MailTo </tmp/emailmsg`;
 	}
 }
+
+sub mergeSelection {
+
+	@A = @{$_[0]};
+	@B = @{$_[1]};
+
+	@seen{@A} = ();
+
+	@merged = (@A, grep{!exists $seen{$_}} @B);
+
+	return @merged;
+
+}
+
+sub vmAppliance {
+
+	local $line = `xe appliance-list name-label=$_[0]  | grep VMs | cut -b30-`;
+
+	local @ret = split ';', $line;
+
+	return @ret;
+}
+
+
+sub  trim { 
+	my $s = shift; 
+	$s =~ s/^\s+|\s+$//g;
+	return $s 
+};
+
+
 
