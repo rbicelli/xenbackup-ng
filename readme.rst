@@ -9,6 +9,7 @@ infrastructure.
 Changelog and New Features
 **************************
 
+2017-05-09: added Tag and vApp support in selection
 
 *******************
 Requirements
@@ -27,7 +28,7 @@ Xenserver and type:
 
 cd ~
 wget https://github.com/rbicelli/xenbackup-ng/archive/master.zip
-unzip master -d /opt/
+unzip master -o -d /opt/
 
 ************
 Configuration
@@ -35,6 +36,10 @@ Configuration
 
 Please refer to file conf/xenbackup.conf and to example job files located
 in jobs folder.
+
+Edit at least mount options and mail options.
+
+For scheduling you have to edit root's crontab file.
 
 *******
 License
