@@ -1,6 +1,6 @@
-*******************
+####################
 What is xenbackup-ng
-*******************
+####################
 
 xebackup-ng is a perl script for making backups of your xenserver
 infrastructure.

@@ -69,7 +69,7 @@ if ($Automount eq true ){
 	$ismounted=`mount |grep $b`;
 	if ($ismounted == "") {
 		$mount = `$MountCommand`;
-		logLine("$Executing: $MountCommand\n");
+		logLine("$Mounting\n");
 	}else{
 		logLine("$NotMount\n");
 	}
@@ -175,6 +175,7 @@ if ($fullbackup eq true) {                		  #Full backup
 	
 }                    
 
+
 if ($usesnap eq true) {
 	$backupMode = "Snapshot";
 	
@@ -188,6 +189,7 @@ if ($usesnap eq true) {
 
 }
 	
+
 foreach $guest(@uuid_b){
 												   #otherwise
 		$tcurrent = `date`;                                                                #get the current date
@@ -422,7 +424,7 @@ foreach $guest(@uuid_b){
 
 
 if ($Automount eq true ){
-	logLine("$Executing: $UMountCommand");
+	logLine("$Unmounting");
 	$mount = `$UMountCommand`;
 }
 
@@ -604,7 +606,7 @@ sub sendLogMail {
 		$send = `cat /tmp/emailmsg /tmp/emaillog > /tmp/emailmsg_1`;
 		$send = `ssmtp $MailTo </tmp/emailmsg_1`;
 	} else { 
-	$send = `ssmtp $MailTo </tmp/emailmsg`;
+	$send = `ssmtp $MailTo </tmp/emailmsg`;	
 	}
 }
 
