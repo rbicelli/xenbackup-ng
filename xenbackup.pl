@@ -1,11 +1,13 @@
 #!/usr/bin/perl
 
-
-# XenBackup-ng by Riccardo Bicelli - think-brick.blogspot.com
+# XenBackup-ng by Riccardo Bicelli - https://think-brick.blogspot.com
+#
+# This program is released under the MIT License
+# 
 # built on "XEN Server backup by Filippo Zanardo - http://pipposan.wordpress.com"
-
+#
 # Usage: "perl xenbackup.pl <job name>", where job name is the name of the job file located in subfolder "jobs", without ".conf" suffix.
-
+#
 # Difference between this and Xenbackup
 # 1. Subroutines
 # 2. Separation of configuration files and hierarchy:
@@ -284,10 +286,18 @@ foreach $guest(@uuid_b){
 		
 		logLine("$Exporting $exportstring - $finalname");
 
+		if ($compress eq true) {
+			$compressstring = "compress=true";
+			logLine("$Compression $Enabled");		
+		} else {
+			$compressstring = "";
+			logLine("$Compression $Not $Enabled");		
+		}		
+
 		if ($usesnap eq true){
-			$status= `xe vm-export vm=$snapshotUUID filename=$exportstring`;
+			$status= `xe vm-export vm=$snapshotUUID filename=$exportstring $compressstring`;
 		}else{
-			$status= `xe vm-export uuid=$guest filename=$exportstring`;
+			$status= `xe vm-export uuid=$guest filename=$exportstring $compressstring`;
 		}
 		
 		logLine("$status");				
@@ -297,7 +307,8 @@ foreach $guest(@uuid_b){
 		
 		logLine("$status");
 				
-		if ($compress eq true) {
+				
+		if ($compress_after eq true) {
 			#Compress backup
 			if (substr($compressext,0,1) eq ".") {
 				logLine("$Executing $compresscmd $finalname$compressext $finalname");

@@ -33,10 +33,8 @@ unzip master -d /opt/
 Configuration
 ************
 
-Please refer to file conf/xenbackup.conf and to example job files in jobs
-folder
-
-
+Please refer to file conf/xenbackup.conf and to example job files located
+in jobs folder.
 
 *******
 License
