@@ -27,7 +27,9 @@ The easiest way it to download it from github, so open a console on your
 Xenserver and type:
 
 cd ~
+
 wget https://github.com/rbicelli/xenbackup-ng/archive/master.zip
+
 unzip master -o -d /opt/
 
 ************
@@ -46,10 +48,6 @@ License
 *******
 
 xenbackup-ng is released under the MIT License (MIT)
-
-*********
-Resources
-*********
 
 
 ***************
