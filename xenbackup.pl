@@ -37,17 +37,31 @@ loadFile("./jobs/".$ARGV[0].".conf");
 
 #Init Some variables
 
+$timestamp = `date +%d%m%Y%H%M%S`;
+$timestamp = substr($timestamp,0,-1);
+
 $hostname = `hostname`;
 $hostname  =~ s/\r|\n//g;
 
 $tstarted = `date`; 				# Get the starting date
+
 $gstarttime = time();
 
 $backupResult = $OK;
 
+$tmp_maillog = "/tmp/xenbackup-$timestamp";
+
+#xe command
+if ($xe_remote eq true) { 
+	$xe_opts = "-s $xe_remote_host -pwf $xe_remote_pwfile";
+} else {
+	$xe_opts='';
+}
+
+
 #Open Log Files
 if ($appendLog eq true) {                        # If Verbose Logging is Selected, then open job's log file, that will be appended to mail notification.
-	open (F_LOG_A, '>/tmp/emaillog');
+	open (F_LOG_A, ">$tmp_maillog");
 	print F_LOG_A "$Line\n";
 	print F_LOG_A "$BackupLog\n";
 	print F_LOG_A "$Line\n";
@@ -56,7 +70,6 @@ if ($appendLog eq true) {                        # If Verbose Logging is Selecte
 if ($logging eq true) {                          # Open Log File
 	open (F_LOG, ">>$logfile");
 }
-
 
 
 logLine("$Beginning $hostname, $Job: [$jobName]");
@@ -112,7 +125,7 @@ if ($checkspace eq true) {
 
 # Expand Selection
 
-$vmlist = `xe vm-list`;                             # Get the formatted list of guests
+$vmlist = `xe vm-list $xe_opts`;                             # Get the formatted list of guests
 @lineList = split(/\n/,$vmlist);                    # Split the list of guests into and array of lines
 @uuid = ();                                         # Array to store uuid's in
 
@@ -203,7 +216,7 @@ foreach $guest(@uuid_b){
 
 		$VMResult = $OK;
 
-		if ($usesnap eq true){
+		if ( ($usesnap eq true) && ($powerstate ne 'halted') ){
 			#Begin Of Snapshot Backup
 
 			if ($removable eq true) {
@@ -214,15 +227,15 @@ foreach $guest(@uuid_b){
 			if ($quiesce eq true) {
 				# Try Quiesce First
 				logLine("$TakingSnap $guest $Name $VMName $WithQuiesce");
-				$snapshotUUID= `xe vm-snapshot-with-quiesce vm=$guest new-name-label=$VMName-backup_vm`;
+				$snapshotUUID= `xe vm-snapshot-with-quiesce vm=$guest new-name-label=$VMName-backup_vm $xe_opts`;
 				if ($? > 0) {
 				#If snapshot failed try with normal method
 				logLine("$QuiesceFailed");
-				$snapshotUUID= `xe vm-snapshot vm=$guest new-name-label=$VMName-backup_vm`;				
+				$snapshotUUID= `xe vm-snapshot vm=$guest new-name-label=$VMName-backup_vm $xe_opts`;				
 				}
 			} else {
 				logLine("$TakingSnap $guest $Name $VMName"); 			
-				$snapshotUUID= `xe vm-snapshot vm=$guest new-name-label=$VMName-backup_vm`; #Snapshot the VM
+				$snapshotUUID= `xe vm-snapshot vm=$guest new-name-label=$VMName-backup_vm $xe_opts`; #Snapshot the VM
 			}
 			$snapResult = $?;
 
@@ -239,9 +252,7 @@ foreach $guest(@uuid_b){
 				logLine("$Snapshot $snapshotUUID $Created");
 			
 				logLine("$Turning $snapshotUUID $Snap2Vm");			
-				$status= `xe template-param-set is-a-template=false ha-always-run=false uuid=$snapshotUUID`;
-			
-				logLine("$status");
+				$status= `xe template-param-set is-a-template=false ha-always-run=false uuid=$snapshotUUID $xe_opts`;							
 			
 				$fdate = `date +%y%m%d-%H%M`;
 				$fdate=~ s/\n//g;                                    #get the current date in a format we can write
@@ -258,7 +269,7 @@ foreach $guest(@uuid_b){
 			
 			if ($powerstate eq "running") {			
 				logLine("$Shutting $VMName"); #export the snapshot
-				$shut = `xe vm-shutdown uuid=$guest`;
+				$shut = `xe vm-shutdown uuid=$guest $xe_opts`;
 			}
 			
 			if ($removable eq true) {
@@ -283,7 +294,6 @@ foreach $guest(@uuid_b){
 			$finalname = $backupdir.$VMName."-".$fdate.".xva";
 			$versiondir = $backupdir;
 		}
-
 		
 		
 		logLine("$Exporting $exportstring - $finalname");
@@ -296,13 +306,14 @@ foreach $guest(@uuid_b){
 			logLine("$Compression $Not $Enabled");		
 		}		
 
-		if ($usesnap eq true){
-			$status= `xe vm-export vm=$snapshotUUID filename=$exportstring $compressstring`;
+		if (($usesnap eq true) && ($powerstate ne 'halted')){
+			$status= `xe vm-export vm=$snapshotUUID filename=$exportstring $compressstring $xe_opts`;
 		}else{
-			$status= `xe vm-export uuid=$guest filename=$exportstring $compressstring`;
+			$status= `xe vm-export uuid=$guest filename=$exportstring $compressstring $xe_opts`;
 		}
 		
 		logLine("$status");				
+		
 		logLine("$Rename");
 				
 		$status= `mv -vf $exportstring $finalname`;
@@ -329,7 +340,7 @@ foreach $guest(@uuid_b){
 				logLine("$logdate $Executing $compresscmd $finalname.$compressext $finalname");
 	
 				$status= `$compresscmd $finalname.$compressext $finalname`;				
-				#logLine("$status");
+				logLine("$status");
 								
 				$finalname = $finalname.".".$compressext;
 				logLine("$finalname");
@@ -337,9 +348,9 @@ foreach $guest(@uuid_b){
 		}
 		
 		
-		if ($usesnap eq true) {
+		if (($usesnap eq true) && ($powerstate ne 'halted')) {
 			#Uninstall Snapshot
-			$status= `xe vm-uninstall uuid=$snapshotUUID  force=true`;
+			$status= `xe vm-uninstall uuid=$snapshotUUID force=true $xe_opts`;
 			if ($? eq 0) {
 				logLine("$DoneR $snapshotUUID");
 			} else {
@@ -355,7 +366,7 @@ foreach $guest(@uuid_b){
 			
 			if ($powerstate eq "running") {
 				logLine ("$Restarting $guest");
-				$status = `xe vm-start uuid=$guest`;
+				$status = `xe vm-start uuid=$guest $xe_opts`;
 			}
 		}
 		
@@ -405,10 +416,10 @@ foreach $guest(@uuid_b){
 			}
 		}
 				
-			$tcurrent = `date`;                                                           #get the current date
-			$finishtime=time();
-			$minutes=($finishtime-$starttime)/60;			
-			logLine("$Completed $VMName $Elapsed $minutes");
+			$tcurrent = `date`; #get the current date
+			$finishtime = time();
+			$elapsedtime = hhmmss($finishtime-$starttime);		
+			logLine("$Completed $VMName $Elapsed $elapsedtime");
 			
 		}else{
 		
@@ -417,8 +428,8 @@ foreach $guest(@uuid_b){
 			$backupResult = "!!";
 		}
 		$finishtime=time();
-		$minutes=($finishtime-$starttime)/60;			
-		$mailString .= "[$VMResult] VM: $VMName {$guest}, $Elapsed $minutes\n";
+		$elapsedtime = hhmmss($finishtime-$starttime);	
+		$mailString .= "[$VMResult] VM: $VMName {$guest}, $Elapsed $elapsedtime\n";
 		
 }
 
@@ -430,10 +441,9 @@ if ($Automount eq true ){
 
 $tfinished = `date`;
 $gfinishtime = time();
-$gminutes = ($gfinishtime - $gstarttime)/60;
+$gtotaltime = ($gfinishtime - $gstarttime);
 
 logLine ("$Finished $tfinished");
-
 
 
 #Init mail File
@@ -450,6 +460,8 @@ if ($mailNotification eq true){
 	sendLogMail();	
 }
 
+#Delete Temp Files
+unlink($tmp_maillog);
 
 ################################################################################################
 # 				Functions/Sub Library
@@ -461,12 +473,13 @@ sub logLine {
 	local $logdate;
 	
 	$logdate=localtime();
-
-	if ($logging eq true) {
-		print F_LOG "$logdate $_[0]\n";
-	}
-	if ($appendLog eq true) {
-		print F_LOG_A "$logdate $_[0]\n";		
+	if ($_[0] ne '') {
+		if ($logging eq true) {
+			print F_LOG "$logdate $_[0]\n";
+		}
+		if ($appendLog eq true) {
+			print F_LOG_A "$logdate $_[0]\n";		
+		}
 	}
 }
 
@@ -488,7 +501,7 @@ sub loadFile {
 
 sub  vmList {
 
-	$vmlist = `xe vm-list $_[0]`;                       # Get the formatted list of guests
+	$vmlist = `xe vm-list $_[0] $xe_opts`;                       # Get the formatted list of guests
 
         @lineList = split(/\n/,$vmlist);                    # Split the list of guests into and array of lines
 
@@ -511,7 +524,7 @@ sub  vmList {
 sub getVMName {
 	local $rval;
 	# This Function gets a VM name given uuid in $1	
-	$rval = `xe vm-list uuid=$_[0] | grep name-label | cut -b24-`;
+	$rval = `xe vm-list uuid=$_[0] $xe_opts | grep name-label | cut -b24-`;
 	$rval=~ s/\n//g;
 	$rval=~ s/\r//g;
 	$rval =~ s/ /_/g;
@@ -521,7 +534,7 @@ sub getVMName {
 sub getVMPowerstate {
 	local $rval;
 	# This Function gets a VM name given uuid in $1	
-	$rval = `xe vm-list uuid=$_[0] | grep power-state | cut -b24-`;
+	$rval = `xe vm-list uuid=$_[0] $xe_opts | grep power-state | cut -b24-`;
 	$rval=~ s/\n//g;
 	$rval=~ s/\r//g;
 	$rval =~ s/ /_/g;
@@ -534,7 +547,7 @@ sub detachRemovableDevices {
 	@device = ();	
 	foreach $rid(@removableuuid) {
 		#logLine("xe vdi-list sr-uuid=$rid params=vbd-uuids --minimal");
-		$srvbduuid = `xe vdi-list sr-uuid=$rid params=vbd-uuids --minimal`;
+		$srvbduuid = `xe vdi-list sr-uuid=$rid params=vbd-uuids --minimal $xe_opts`;
 		
 		if ($srvbduuid) {
 			foreach $char (split //, $srvbduuid) {
@@ -548,7 +561,7 @@ sub detachRemovableDevices {
 			}
 						
 			foreach $mline(@srvbduuid){
-				$e = `xe vbd-list vm-uuid=$guest uuid=$mline`;
+				$e = `xe vbd-list vm-uuid=$guest uuid=$mline $xe_opts`;
 				
 				if ($e) {
 					@mlineList = split(/\n/,$e);
@@ -561,8 +574,8 @@ sub detachRemovableDevices {
 						}
 					}
 					
-					$unplug = `xe vbd-unplug uuid=$mline`;
-					$dest = `xe vbd-destroy uuid=$mline`;
+					$unplug = `xe vbd-unplug uuid=$mline $xe_opts`;
+					$dest = `xe vbd-destroy uuid=$mline $xe_opts`;
 				}
 				
 			}
@@ -577,15 +590,15 @@ sub reattachRemovableDevices {
 	if (@toreattach) {
 		$i = 0;
 		foreach $zline(@toreattach){
-			$create = `xe vbd-create vm-uuid=$guest vdi-uuid=$zline device=@device[$i] --minimal`;
-			$plug = `xe vbd-plug uuid=$create`;
+			$create = `xe vbd-create vm-uuid=$guest vdi-uuid=$zline device=@device[$i] --minimal $xe_opts`;
+			$plug = `xe vbd-plug uuid=$create $xe_opts`;
 			$i=$i+1;
 		}
 	}
 }
 
 sub sendLogMail {
-	open (F_MAIL, '>/tmp/emailmsg');
+	open (F_MAIL, ">$tmp_maillog-msg");
 	print F_MAIL "To:$MailTo\n";
 	print F_MAIL "From:$MailFrom\n";
 	print F_MAIL "Subject: [$backupResult] $SubjectHeader [$jobName]\n";
@@ -597,18 +610,21 @@ sub sendLogMail {
 	print F_MAIL "\n$JobDetails\n\n"; 
 
 	print F_MAIL "$mailString\n";
-
-	print F_MAIL "\n$TotalElapsed $gminutes min\n";
+	$timeelapsed = hhmmss($gtotaltime);
+	print F_MAIL "\n$TotalElapsed $timeelapsed \n";
 
 	close (F_MAIL);
 	if ($appendLog eq true) {
 		close F_LOG_A;
-		$send = `cat /tmp/emailmsg /tmp/emaillog > /tmp/emailmsg_1`;
-		$send = `ssmtp $MailTo </tmp/emailmsg_1`;
+		$send = `cat $tmp_maillog-msg $tmp_maillog > $tmp_maillog-send`;
+		$send = `$mailcmd $MailTo < $tmp_maillog-send`;
+		unlink("$tmp_maillog-send");	
 	} else { 
-	$send = `ssmtp $MailTo </tmp/emailmsg`;	
+		$send = `$mailcmd $MailTo < $tmp_maillog-msg`;	
 	}
+	unlink("$tmp_maillog-msg");
 }
+
 
 sub mergeSelection {
 
@@ -623,9 +639,10 @@ sub mergeSelection {
 
 }
 
+
 sub vmAppliance {
 
-	local $line = `xe appliance-list name-label=$_[0]  | grep VMs | cut -b30-`;
+	local $line = `xe appliance-list name-label=$_[0] $xe_opts | grep VMs | cut -b30-`;
 
 	local @ret = split ';', $line;
 
@@ -640,4 +657,17 @@ sub  trim {
 };
 
 
+sub hhmmss {
+
+  my $hh=int($_[0]/3600);
+
+  my $lo=$_[0] % 3600;
+
+  my $mm=int($lo/60);
+
+  my $ss=int($lo % 60);
+  
+  return sprintf ("%02d:%02d:%02d", $hh,$mm,$ss)
+
+ }
 
