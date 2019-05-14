@@ -45,8 +45,10 @@ or
 
 ```
 cd /opt
+
 git clone https://github.com/rbicelli/xenbackup-ng.git
 ```
+
 ************
 Configuration
 ************
@@ -69,8 +71,11 @@ and a weekly job every sunday at 1:00 AM
 
 ```
 # xenbackup-ng
+
 # m h dom mon dow user    command
+
 0 21  * * 1-5  xenbackup /opt/xenbackup-ng/xenbackup.pl example-job
+
 0 1  * * 0 xenbackup /opt/xenbackup-ng/xenbackup.pl example-job-weekly`
 ```
 
