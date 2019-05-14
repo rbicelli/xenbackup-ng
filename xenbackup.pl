@@ -286,11 +286,11 @@ foreach $guest(@uuid_b){
 			}else {
 				mkdir($backupdir.$VMName,0777);
 			}
-			$exportstring = $backupdir.$VMName."/".$VMName."-".$fdate.".xvatmp";
+			$exportstring = $inline_compress_cmd.$backupdir.$VMName."/".$VMName."-".$fdate.".xvatmp";			
 			$finalname = $backupdir.$VMName."/".$VMName."-".$fdate.".xva";
 			$versiondir = $backupdir.$VMName;
 		}else{
-			$exportstring = $backupdir.$VMName."-".$fdate.".xvatmp";
+			$exportstring = $inline_compress_cmd.$backupdir.$VMName."-".$fdate.".xvatmp";
 			$finalname = $backupdir.$VMName."-".$fdate.".xva";
 			$versiondir = $backupdir;
 		}
@@ -307,9 +307,9 @@ foreach $guest(@uuid_b){
 		}		
 
 		if (($usesnap eq true) && ($powerstate ne 'halted')){
-			$status= `xe vm-export vm=$snapshotUUID filename=$exportstring $compressstring $xe_opts`;
-		}else{
-			$status= `xe vm-export uuid=$guest filename=$exportstring $compressstring $xe_opts`;
+			$status= `xe vm-export $xe_opts vm=$snapshotUUID $compressstring filename=$exportstring`;
+		}else{			
+			$status= `xe vm-export $xe_opts uuid=$guest $compressstring filename=$exportstring`;
 		}
 		
 		logLine("$status");				
